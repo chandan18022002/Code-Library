@@ -1,0 +1,196 @@
+<?php require 'database.php'; ?>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>MPI</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shoelace-css/1.0.0-beta16/shoelace.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      html {
+          font-family: Arial;
+          display: inline-block;
+          margin: 0px auto;
+          text-align: center;
+      }
+      
+      h1 { font-size: 2.0rem; color:#2980b9;}
+      h2 { font-size: 1.25rem; color:#2980b9;}
+      
+      .buttonON {
+        display: inline-block;
+        font-weight: bold;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        outline: none;
+        color: #fff;
+        background-color: #4CAF50;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px #999;
+      }
+      .buttonON:hover {background-color: #3e8e41}
+      .buttonON:active {
+        background-color: #3e8e41;
+        box-shadow: 0 1px #666;
+        transform: translateY(4px);
+      }
+        
+      .buttonOFF {
+        display: inline-block;
+        font-weight: bold;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        outline: none;
+        color: #fff;
+        background-color: #e74c3c;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px #999;
+      }
+      .buttonOFF:hover {background-color: #c0392b}
+      .buttonOFF:active {
+        background-color: #c0392b;
+        box-shadow: 0 1px #666;
+        transform: translateY(4px);
+      }
+    </style>
+  </head>
+  <body><br>
+    <h1>HOME AUTOMATION</h1>
+    <img src="{{ url_for('video_feed') }}">
+    <div class="container">
+        <div class="app"> 
+            <div class="input-single">
+                <textarea id="note-textarea" rows="2"></textarea>
+            </div>         
+            <button id="start-record-btn" title="Start Recording">Start</button>
+            <button id="pause-record-btn" title="Pause Recording">Pause</button>
+            <button id="save-note-btn" title="Save Note">CONFIRM</button>   
+            <p id="recording-instructions">Press the <strong>Start</strong> button and allow access.</p>
+        </div>
+    </div>
+    <form action="updateDBLED.php" method="post" id="LED-1_ON">
+      <input type="hidden" name="Stat" value="1"/>    
+      <input type="hidden" name="table" value="light"/>    
+    </form>
+    <form action="updateDBLED.php" method="post" id="LED-1_OFF">
+      <input type="hidden" name="Stat" value="0"/>
+      <input type="hidden" name="table" value="light"/>  
+    </form>
+    <button class="buttonON" type="submit" form="LED-1_ON" >LIGHT ON</button>
+    <button class="buttonOFF" type="submit" form="LED-1_OFF" >LIGHT OFF</button>  
+    <br><br>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script>
+    try {
+      var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var recognition = new SpeechRecognition();
+    }
+    catch(e) {
+      console.error(e);
+      $('.no-browser-support').show();
+      $('.app').hide();
+    }
+    var noteTextarea = $('#note-textarea');
+    var instructions = $('#recording-instructions');
+    var notesList = $('ul#notes');
+    var noteContent = '';
+    recognition.continuous = true;
+    recognition.onresult = function(event) {
+      var current = event.resultIndex;
+      var transcript = event.results[current][0].transcript;
+      var mobileRepeatBug = (current == 1 && transcript == event.results[0][0].transcript);
+
+      if(!mobileRepeatBug) {
+        noteContent += transcript;
+        noteTextarea.val(noteContent);
+      }
+    };
+    recognition.onstart = function() { 
+      instructions.text('Voice recognition activated. Try speaking into the microphone.');
+    }
+    recognition.onspeechend = function() {
+      instructions.text('You were quiet for a while so voice recognition turned itself off.');
+    }
+    recognition.onerror = function(event) {
+      if(event.error == 'no-speech') {
+        instructions.text('No speech was detected. Try again.');  
+      };
+    }
+    $('#start-record-btn').on('click', function(e) {
+      if (noteContent.length) {
+        noteContent += ' ';
+      }
+      recognition.start();
+    });
+    $('#pause-record-btn').on('click', function(e) {
+      recognition.stop();
+      instructions.text('Voice recognition paused.');
+    });
+    noteTextarea.on('input', function() {
+      noteContent = $(this).val();
+    })
+    $('#save-note-btn').on('click', function(e) {
+      recognition.stop();
+      if(!noteContent.length) {
+        instructions.text('Could not upload empty command.');
+      }
+      else {
+        $.ajax({
+            type: "POST",
+            url: 'index.php',
+            data: "userID=" + noteContent,
+        });
+        <?php
+        if(isset($_POST['userID'])){
+            $uid = $_POST['userID'];
+        } else {$uid = "fail";}
+        if($uid == "zero" || $uid == "0" || $uid == "fan of" || $uid == "fan off"|| $uid == "Fan of" || $uid == "Fan off" || $uid == "Speed 0"|| $uid == "speed 0"){
+            $user_registration_query ="UPDATE `fan` SET `status` = '0' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "Speed 1"|| $uid == "speed 1"|| $uid == "1"){
+            $user_registration_query ="UPDATE `fan` SET `status` = '1' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "Tu" || $uid === "fan on"|| $uid === "Fan on" || $uid == "Speed 2"|| $uid == "speed 2"|| $uid == "2"){
+            $user_registration_query ="UPDATE `fan` SET `status` = '2' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "Speed 3"|| $uid == "speed 3"|| $uid == "3"){
+            $user_registration_query ="UPDATE `fan` SET `status` = '3' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "light on" || $uid == "lights on" || $uid == "Light on" || $uid == "Lights on"){
+            $user_registration_query ="UPDATE `light` SET `status` = '1' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "light off" || $uid == "lights off" || $uid == "light of" || $uid == "lights of" || $uid == "Light off" || $uid == "Lights off" || $uid == "Light of" || $uid == "Lights of"){
+            $user_registration_query ="UPDATE `light` SET `status` = '0' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "ghost on" || $uid == "ghosts on" || $uid == "Ghost on" || $uid == "Ghosts on"){
+            $user_registration_query ="UPDATE `ghost` SET `status` = '1' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        elseif($uid == "ghost off" || $uid == "ghosts off" || $uid == "ghost of" || $uid == "ghosts of" || $uid == "Ghost off" || $uid == "Ghosts off" || $uid == "Ghost of" || $uid == "Ghosts of"){
+            $user_registration_query ="UPDATE `ghost` SET `status` = '0' WHERE `id` = '0'";
+            $user_registration_submit = mysqli_query($con, $user_registration_query) or die(mysqli_error($con));
+        }
+        ?>
+        instructions.text('Command successfully uploaded');
+        noteTextarea.val('');
+        noteContent = '';
+      }
+    })
+    </script>
+  </body>
+</html>
